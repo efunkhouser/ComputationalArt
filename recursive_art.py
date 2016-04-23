@@ -4,86 +4,69 @@ import random
 from math import *
 from PIL import Image
 
+class Func(object):
+	''' This is a function with a name that tells you how to eval its arguments in the method evaluate_me
+		min_depth and max_depth tell you how many functions deep the objects should nest
+		Once max_depth is reached, the Func evaluates to arg x or y '''
+	
+	def __init__(self, func_name, min_depth, max_depth, arg1=None, arg2=None):
+		self.func_name = func_name
+		self.min_depth = min_depth
+		self.max_depth = max_depth
+		self.arg1 = arg1 #This will refer to a Func object unless func_name is x or y
+		self.arg2 = arg2 #Same here, but only if func_name dictates 2 args
 
-def build_random_function(min_depth, max_depth):
-    """ Builds a random function of depth at least min_depth and depth
-        at most max_depth (see assignment writeup for definition of depth
-        in this context)
+	def __str__(self):
+		return self.func_name
 
-        min_depth: the minimum depth of the random function
-        max_depth: the maximum depth of the random function
-        returns: the randomly generated function represented as a nested list
-                 (see assignment writeup for details on the representation of
-                 these functions)
-    """
+	def build_argument_Func(self):
+	    """ Builds an association to argument function(s) by creating them as Func object(s)
+	    	Returns nothing, just creates those attributes """
 
-    if max_depth==1:
-        funcList = ["x","y"]
-        function = random.choice(funcList)
-    	return [function]
-    
-    funcList = ["prod", "avg", "cos_pi", "sin_pi", "x", "y", "e_expon", "combo"]
+	    if self.max_depth==1:
+	        funcList = ["x","y"]	    
+	    elif self.min_depth <= 1:
+	    	funcList = ["x", "y", "prod", "avg", "cos_pi", "sin_pi", "e_expon", "combo"]
+	    else:
+	    	funcList = ["prod", "avg", "cos_pi", "sin_pi", "e_expon", "combo"]
+	    
+	    if self.func_name in ["prod", "avg", "combo"]:
+	    	self.arg1 = Func(random.choice(funcList), self.min_depth-1, self.max_depth-1)
+	    	self.arg2 = Func(random.choice(funcList), self.min_depth-1, self.max_depth-1)
+	    else:
+	    	self.arg1 = Func(random.choice(funcList), self.min_depth-1, self.max_depth-1)
 
-    function = random.choice(funcList)
-    if (min_depth <= 1 and (function == "x" or function == "y")):
-    	return [function]
-    
-    if function in ["prod", "avg", "x", "y", "combo"]:
-    	return [function, build_random_function(min_depth-1,max_depth-1),build_random_function(min_depth-1,max_depth-1)]
-    else:
-    	return [function, build_random_function(min_depth-1, max_depth-1)]
-
+	def evaluate_me(self,x,y):
+	    """ If it's an edge case (x or y), return that
+	    	Otherwise:
+	    	First generate arguments to evaluate, then
+	    	Evaluate this function with inputs x,y
+	        Returns: the function value """
 
 
+		##EDGE CASES
+	    if self.func_name == "x":
+	    	return x
+	    elif self.func_name == "y":
+	    	return y
 
-def evaluate_random_function(f, x, y):
-    """ Evaluate the random function f with inputs x,y
-        Representation of the function f is defined in the assignment writeup
 
-        f: the function to evaluate
-        x: the value of x to be used to evaluate the function
-        y: the value of y to be used to evaluate the function
-        returns: the function value
-
-        >>> evaluate_random_function(["x"],-0.5, 0.75)
-        -0.5
-        >>> evaluate_random_function(["y"],0.1,0.02)
-        0.02
-        >>> evaluate_random_function(["x",["avg",["x"],["y"]],["cos_pi",["x"]]],-0.5, 0.75)
-        0.125
-    """
-    funcName = f[0]
-    if len(f) == 1: ##EDGE CASES
-    	if funcName == "x":
-    		return x
-    	elif funcName == "y":
-    		return y
-
-    if len(f) == 2:
-    	arg1 = evaluate_random_function(f[1],x,y)
-
-    	if funcName == "cos_pi":
-    		return cos(pi * arg1)
-    	if funcName == "sin_pi":
-    		return sin(pi * arg1)
-    	if funcName == "e_expon":
-    		return 2.3*(exp(arg1-1.0) - 0.567)
-
-    if len(f) == 3:
-    	arg1 = evaluate_random_function(f[1],x,y)
-    	arg2 = evaluate_random_function(f[2],x,y)
-		
-	if funcName == "prod":
-		return arg1 * arg2
-    if funcName == "avg":
-    	return 0.5 * (arg1 + arg2)
-    if funcName == "x":
-		return arg1
-    if funcName == "y":
-		return arg2
-    if funcName == "combo":
-		return 0.5 * arg1**2 + 0.5 * cos(arg2)
-
+	    if self.arg1 == None:
+	    	self.build_argument_Func()
+	    	
+	    ##RECURSIVE CASES
+	    if self.func_name == "cos_pi":
+	    	return cos(pi * self.arg1.evaluate_me(x,y))
+	    if self.func_name == "sin_pi":
+	    	return sin(pi * self.arg1.evaluate_me(x,y))
+	    if self.func_name == "e_expon":
+	    	return 2.3*(exp(self.arg1.evaluate_me(x,y)-1.0) - 0.567)
+		if self.func_name == "prod":
+			return self.arg1.evaluate_me(x,y) * self.arg2.evaluate_me(x,y)
+	    if self.func_name == "avg":
+	    	return 0.5 * (self.arg1.evaluate_me(x,y) + self.arg2.evaluate_me(x,y))
+	    if self.func_name == "combo":
+			return 0.5 * self.arg1.evaluate_me(x,y)**2 + 0.5 * cos(self.arg2.evaluate_me(x,y))
 
 def remap_interval(val,
                    input_interval_start,
@@ -170,10 +153,10 @@ def generate_art(filename, x_size=350, y_size=350):
         filename: string filename for image (should be .png)
         x_size, y_size: optional args to set image dimensions (default: 350)
     """
-    # Functions for red, green, and blue channels - where the magic happens!
-    red_function = build_random_function(7,9)
-    green_function = build_random_function(7,9)
-    blue_function = build_random_function(7,9)
+    funcList = ["prod", "avg", "cos_pi", "sin_pi", "e_expon", "combo"]
+    red_function = Func(random.choice(funcList), 7, 9)
+    green_function = Func(random.choice(funcList), 7, 9)
+    blue_function = Func(random.choice(funcList), 7, 9)
 
     # Create image and loop over all pixels
     im = Image.new("RGB", (x_size, y_size))
@@ -183,9 +166,9 @@ def generate_art(filename, x_size=350, y_size=350):
             x = remap_interval(i, 0, x_size, -1, 1)
             y = remap_interval(j, 0, y_size, -1, 1)
             pixels[i, j] = (
-                    color_map(evaluate_random_function(red_function, x, y)),
-                    color_map(evaluate_random_function(green_function, x, y)),
-                    color_map(evaluate_random_function(blue_function, x, y))
+                    color_map(red_function.evaluate_me(x, y)),
+                    color_map(green_function.evaluate_me(x, y)),
+                    color_map(blue_function.evaluate_me(x, y))
                     )
 
     im.save(filename)
@@ -198,7 +181,7 @@ if __name__ == '__main__':
     # Create some computational art!
     # TODO: Un-comment the generate_art function call after you
     #       implement remap_interval and evaluate_random_function
-    generate_art("example1.png")
+    generate_art("please.png")
 
     # Test that PIL is installed correctly
     # TODO: Comment or remove this function call after testing PIL install
